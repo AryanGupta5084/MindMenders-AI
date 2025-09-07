@@ -26,7 +26,7 @@ Security and privacy are foundational to the platform, with protections at the d
 - **Role-Based Access Control (RBAC):** Admin routes are protected by a dedicated `isAdmin` middleware that performs a fresh database check on *every request* to verify admin status, rather than trusting the (potentially outdated) claims within the JWT.
 - **Secure API & Server:** The Express server implements `helmet` for secure HTTP headers (including a Content Security Policy), `express-rate-limit` to prevent API abuse, and a strict CORS policy controlled via environment variables.
 
-### 3. User Wellness Toolkit
+### 3️⃣ User Wellness Toolkit 🧘
 
 These are the core interactive features available to registered users through the main application.
 
@@ -38,7 +38,7 @@ These are the core interactive features available to registered users through th
 - **Offline PWA Functionality:** As a full Progressive Web App, the platform caches its core "app shell" (HTML/CSS/JS) and dynamic content (like wellness resources), allowing users to access the app and cached information even without an internet connection.
 - **Wellness Resource Hub:** A curated library of articles, videos, and audio content, filterable by language and tags.
 
-### 4. Human Connection: Counselors & Community
+### 4️⃣ Human Connection: Counselors & Community 👥
 
 The platform connects users with professionals and peers through a complete scheduling and communication suite.
 
@@ -50,7 +50,7 @@ The platform connects users with professionals and peers through a complete sche
 - **Anonymous Community Forum:** A peer-support forum where users can create posts and comments with an "Post Anonymously" toggle. When checked, the backend controller intercepts the request and masks the user's identity, displaying "Anonymous" to all other users.
 - **Spam-Proof Reporting:** Users can report any post or comment for moderation. The backend uses MongoDB's **`$addToSet`** operator to add the user's ID to a `reports` array, which atomically prevents the same user from spam-reporting the same content multiple times.
 
-### 5. Platform Management (Admin & Counselor Portals)
+### 5️⃣ Platform Management (Admin & Counselor Portals) 🛠
 
 The project includes two additional, separate applications for platform operation, served from the same backend.
 
@@ -62,13 +62,13 @@ The project includes two additional, separate applications for platform operatio
 
 ## 🛠 Tech Stack
 
-- **Backend:** Node.js, Express.js, Socket.io (for real-time chat)
+- **Backend:** [Node.js](https://nodejs.org/en/), [Express.js](https://expressjs.com/), [Socket.io](https://socket.io/) (for real-time chat)
 - **Frontend:** HTML5, CSS3, Vanilla JavaScript (SPA architecture)
 - **AI/ML:**
-  - **Sentiment Analysis:** Python, Flask, PyTorch, HuggingFace Transformers (BERT)
-  - **Generative AI:** Google Gemini (via `@google/generative-ai`)
-- **Database:** MongoDB (with Mongoose ODM)
-- **Authentication:** JSON Web Tokens (JWT)
+  - **Sentiment Analysis:** [Python](http://python.org/), [Flask](https://flask.palletsprojects.com/en/stable/), [PyTorch](https://pytorch.org/), [HuggingFace Transformers](https://huggingface.co/) ([BERT](https://huggingface.co/docs/transformers/en/model_doc/bert))
+  - **Generative AI:** [Google Gemini](http://deepmind.google/models/gemini/) (via `@google/generative-ai`)
+- **Database:** [MongoDB](https://www.mongodb.com/) (with Mongoose ODM)
+- **Authentication:** JSON Web Tokens ([JWT](https://www.jwt.io/))
 
 ## 📁 Project Structure
 
@@ -135,7 +135,7 @@ npm run sentiment-service
 npm run dev
 ```
 
-### 🚀 5. Access the App  
+### 🌐 5. Access the App  
 
 - **Main App:** [http://localhost:5000](http://localhost:5000)  
 - **Admin Panel:** [http://localhost:5000/admin.html](http://localhost:5000/admin.html)  
@@ -153,7 +153,7 @@ npm run dev
 - **Counselor:** `GET /api/counselors/my-appointments`
 - **Admin:** Full CRUD and management routes under `/api/admin/...`
 
-## 🆘 Crisis Response
+## 🆘 Crisis Response 🚨
 
 The chatbot includes an automated crisis detection system that:
 
