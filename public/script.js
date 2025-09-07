@@ -527,8 +527,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleLogin(e) {
         e.preventDefault();
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value.trim();
+
         if (!email || !password) { showNotification('Please fill in all fields', 'error'); return; }
 
         try {
@@ -556,8 +557,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleRegister(e) {
         e.preventDefault();
-        const username = document.getElementById('registerUsername').value;
-        const email = document.getElementById('registerEmail').value;
+        const username = document.getElementById('registerUsername').value.trim();
+        const email = document.getElementById('registerEmail').value.trim();
         const password = document.getElementById('registerPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
         const hasAgreed = registerTermsCheckbox.checked;
@@ -882,22 +883,42 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string|null} sentiment - The detected sentiment for additional styling.
      */
     function addMessageToChat(message, sender, timestamp = 'Now', flagged = false, sentiment = null) {
-        const messageElement = document.createElement('div');
-        messageElement.className = `message ${sender}-message`;
+        const safeMessage = (typeof message === 'string' && message.trim()) ? message : 'Sorry, I could not process the message.';
+
+        // 1. Create the <p> tag for the message content
+        const messageP = createElement('p', { 
+            textContent: safeMessage,
+            style: { whiteSpace: 'pre-wrap' } 
+        });
+
+        // 2. Create the wrapper elements
+        const messageContentDiv = createElement('div', { 
+            className: 'message-content', 
+            children: [messageP] 
+        });
+        
+        const messageTimeDiv = createElement('div', { 
+            className: 'message-time', 
+            textContent: timestamp 
+        });
+
+        const messageElement = createElement('div', {
+            className: `message ${sender}-message`,
+            children: [messageContentDiv, messageTimeDiv]
+        });
+
+        // 3. Add classes for sentiments/flags
         if (flagged) messageElement.classList.add('urgent');
-        // Add classes for specific sentiments to allow for custom styling.
         if (sentiment && ['anxiety', 'depression', 'stress'].includes(sentiment)) {
             messageElement.classList.add(sentiment);
         }
-        // Basic sanitization to prevent accidental HTML injection.
-        const safeMessage = (typeof message === 'string' && message.trim()) ? message : 'Sorry, I could not process the message.';
-        messageElement.innerHTML = `<div class="message-content"><p>${formatMessage(safeMessage)}</p></div><div class="message-time">${timestamp}</div>`;
+
+        // 4. Add to the DOM
         chatMessages.appendChild(messageElement);
 
-        // If text-to-speech is enabled, read the bot's message aloud.
+        // 5. Speak if TTS is on
         if (sender === 'bot' && isTextToSpeechEnabled) {
-            const textToSpeak = message.replace(/<[^>]*>?/gm, ''); // Strip HTML tags before speaking
-            speakText(textToSpeak);
+            speakText(safeMessage);
         }
     }
 
@@ -996,27 +1017,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createResourceCard(resource) {
-        const card = document.createElement('a');
+        let iconClass = 'fa-solid fa-file-lines';
+        if (resource.type === 'video') iconClass = 'fa-solid fa-video';
+        if (resource.type === 'audio') iconClass = 'fa-solid fa-headphones';
+
+        const card = createElement('a', {
+            className: 'resource-card',
+            children: [
+                createElement('div', {
+                    className: 'resource-card-header',
+                    children: [
+                        createElement('i', { className: `${iconClass} resource-card-icon` }),
+                        createElement('h3', { className: 'resource-card-title', textContent: resource.title })
+                    ]
+                }),
+                createElement('div', {
+                    className: 'resource-card-body',
+                    children: [
+                        createElement('p', { className: 'resource-card-description', textContent: resource.description })
+                    ]
+                }),
+                resource.tags.length > 0 ? createElement('div', {
+                    className: 'resource-card-footer',
+                    children: resource.tags.map(tag => 
+                        createElement('span', { className: 'resource-tag', textContent: tag }) // SAFE
+                    )
+                }) : null
+            ]
+        });
+
         card.href = resource.url;
         card.target = '_blank';
         card.rel = 'noopener noreferrer';
-        card.className = 'resource-card';
-        let iconClass = 'fa-solid fa-file-lines'; // Default for articles
-        if (resource.type === 'video') iconClass = 'fa-solid fa-video';
-        if (resource.type === 'audio') iconClass = 'fa-solid fa-headphones';
-        card.innerHTML = `
-            <div class="resource-card-header">
-                <i class="${iconClass} resource-card-icon"></i>
-                <h3 class="resource-card-title">${resource.title}</h3>
-            </div>
-            <div class="resource-card-body">
-                <p class="resource-card-description">${resource.description}</p>
-            </div>
-            ${resource.tags.length > 0 ? `
-            <div class="resource-card-footer">
-                ${resource.tags.map(tag => `<span class="resource-tag">${tag}</span>`).join('')}
-            </div>` : ''}
-        `;
+        
         return card;
     }
 
@@ -1033,12 +1066,26 @@ document.addEventListener('DOMContentLoaded', () => {
         bookingState = { counselor: null, date: null, startTime: null };
     }
 
-    function openBookingModal() {
+    async function openBookingModal() {
         resetBookingState();
-        showBookingStep(1);
-        renderCounselorSelectionStep();
         bookingModal.classList.remove('hidden');
         dropdownMenu.classList.remove('active');
+        
+        try {
+            const serverDateResponse = await fetch('/api/users/server-date');
+            if (!serverDateResponse.ok) throw new Error('Could not sync server time.');
+            
+            const serverDateResult = await serverDateResponse.json();
+            // Store the server's UTC date string in our booking state.
+            bookingState.serverToday = serverDateResult.data.today; 
+
+            showBookingStep(1);
+            renderCounselorSelectionStep();
+
+        } catch (error) {
+            showNotification(error.message, 'error');
+            bookingModal.classList.add('hidden');
+        }
     }
 
     async function renderCounselorSelectionStep() {
@@ -1071,15 +1118,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderSlotSelectionStep() {
         selectedCounselorName.textContent = bookingState.counselor.user.username;
-        // Default the date picker to tomorrow.
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const yyyy = tomorrow.getFullYear();
-        const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
-        const dd = String(tomorrow.getDate()).padStart(2, '0');
-        slotDatePicker.value = `${yyyy}-${mm}-${dd}`;
-        slotDatePicker.min = `${yyyy}-${mm}-${dd}`;
-        bookingState.date = slotDatePicker.value;
+        
+        // Create our date from the server's UTC date string we fetched earlier.
+        const serverToday = new Date(bookingState.serverToday); 
+        
+        // Calculate "tomorrow" based on the server's date
+        const tomorrow = new Date(serverToday.getTime()); // Clone the server date
+        tomorrow.setUTCDate(tomorrow.getUTCDate() + 1); // Advance it by one UTC day
+
+        // Extract YYYY-MM-DD parts from the server's "tomorrow" date
+        const yyyy = tomorrow.getUTCFullYear();
+        const mm = String(tomorrow.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(tomorrow.getUTCDate()).padStart(2, '0');
+        
+        const tomorrowString = `${yyyy}-${mm}-${dd}`;
+        
+        slotDatePicker.value = tomorrowString;
+        slotDatePicker.min = tomorrowString;
+        bookingState.date = tomorrowString;
         
         fetchAndRenderSlots();
         showBookingStep(2);
@@ -1222,36 +1278,66 @@ document.addEventListener('DOMContentLoaded', () => {
      * @returns {HTMLElement} The created div element for the appointment.
      */
     function createAppointmentItem(apt, isUpcoming) {
-        const item = document.createElement('div');
-        item.className = 'appointment-item';
-
         const startTime = new Date(apt.startTime);
         const endTime = new Date(apt.endTime);
         const now = new Date();
 
         const canJoin = isUpcoming && apt.status === 'confirmed' && now >= startTime && now <= endTime;
-        const canCancel = isUpcoming && apt.status === 'booked';
+        const canCancel = isUpcoming && apt.status === 'booked' || apt.status === 'confirmed'; // Allow canceling confirmed appointments
 
-        item.innerHTML = `
-            <p>With: <strong>${apt.counselor.user.username}</strong></p>
-            <p>On: <strong>${startTime.toLocaleString()}</strong></p>
-            <p>Status: <span class="status-badge status-${apt.status}">${apt.status.replace(/_/g, ' ')}</span></p>
-            <div class="appointment-item-actions">
-                ${canCancel ? `<button class="btn danger-btn small-btn" data-id="${apt._id}">Cancel</button>` : ''}
-                ${isUpcoming ? `<button class="btn primary-btn small-btn" data-id="${apt._id}" ${canJoin ? '' : 'disabled'}>Join Live Chat</button>` : ''}
-            </div>
-        `;
+        const actionsChildren = []; // Start with an empty actions list
+
+        if (canCancel) {
+            actionsChildren.push(createElement('button', {
+                className: 'btn danger-btn small-btn',
+                textContent: 'Cancel',
+                dataset: { id: apt._id },
+                onclick: (e) => cancelMyAppointment(e.currentTarget.dataset.id)
+            }));
+        }
+
+        if (isUpcoming) {
+            const joinBtn = createElement('button', {
+                className: 'btn primary-btn small-btn',
+                textContent: 'Join Live Chat',
+                dataset: { id: apt._id },
+                onclick: () => joinLiveChat(apt._id, apt.counselor.user.username)
+            });
+            if (!canJoin) joinBtn.disabled = true; // Disable if not joinable
+            actionsChildren.push(joinBtn);
+        }
         
-        // Add event listeners for the buttons if they exist.
-        const cancelButton = item.querySelector('.danger-btn');
-        if (cancelButton) {
-            cancelButton.onclick = () => cancelMyAppointment(cancelButton.dataset.id);
-        }
-
-        const joinButton = item.querySelector('.primary-btn');
-        if (joinButton && canJoin) {
-            joinButton.onclick = () => joinLiveChat(apt._id, apt.counselor.user.username);
-        }
+        // Create the main appointment item element using our secure helpers
+        const item = createElement('div', {
+            className: 'appointment-item',
+            children: [
+                createElement('p', {
+                    children: [
+                        document.createTextNode('With: '),
+                        createElement('strong', { textContent: apt.counselor.user.username })
+                    ]
+                }),
+                createElement('p', {
+                    children: [
+                        document.createTextNode('On: '),
+                        createElement('strong', { textContent: startTime.toLocaleString() })
+                    ]
+                }),
+                createElement('p', {
+                    children: [
+                        document.createTextNode('Status: '),
+                        createElement('span', {
+                            className: `status-badge status-${apt.status}`,
+                            textContent: apt.status.replace(/_/g, ' ')
+                        })
+                    ]
+                }),
+                createElement('div', {
+                    className: 'appointment-item-actions',
+                    children: actionsChildren
+                })
+            ]
+        });
         
         return item;
     }
@@ -1297,21 +1383,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderPostList(posts) {
+        // Clear the container safely
+        forumPostsContainer.innerHTML = ''; 
+
         if (posts.length === 0) {
-            forumPostsContainer.innerHTML = '<p>No posts yet. Be the first to start a conversation!</p>';
+            forumPostsContainer.appendChild(createElement('p', { 
+                textContent: 'No posts yet. Be the first to start a conversation!' 
+            }));
             return;
         }
-        forumPostsContainer.innerHTML = posts.map(post => `
-            <div class="post-item" onclick="viewPostDetail('${post._id}')">
-                <h4>${post.title}</h4>
-                <p>By <strong>${post.user.username}</strong> on ${new Date(post.createdAt).toLocaleDateString()}</p>
-            </div>
-        `).join('');
+
+        // Loop through each post and create elements programmatically
+        posts.forEach(post => {
+            const postCard = createElement('div', {
+                className: 'post-item',
+                onclick: () => viewPostDetail(post._id),
+                children: [
+                    // Any malicious HTML in post.title will be rendered as plain text.
+                    createElement('h4', { textContent: post.title }),
+                    createElement('p', {
+                        children: [
+                            document.createTextNode('By '),
+                            // Usernames are also safely rendered as text.
+                            createElement('strong', { textContent: post.user.username }),
+                            document.createTextNode(` on ${new Date(post.createdAt).toLocaleDateString()}`)
+                        ]
+                    })
+                ]
+            });
+            forumPostsContainer.appendChild(postCard);
+        });
     }
 
     window.viewPostDetail = async function(postId) {
         showForumView('detail');
-        singlePostContainer.innerHTML = '<p>Loading post...</p>';
+        singlePostContainer.innerHTML = '<p>Loading post...</p>'; // Clear with a loading message
         commentsContainer.innerHTML = '';
         document.getElementById('commentPostId').value = postId;
 
@@ -1321,56 +1427,113 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!result.success) throw new Error(result.error);
 
             const { post, comments } = result.data;
-            let postActionsHtml = `
+            
+            // 1. Clear the container
+            singlePostContainer.innerHTML = ''; 
+
+            // 2. Build Post Actions safely
+            const actionsContainer = document.createElement('div');
+            actionsContainer.className = 'post-actions';
+            actionsContainer.style.display = 'flex';
+            actionsContainer.style.alignItems = 'center';
+            actionsContainer.style.gap = '0.5rem';
+            actionsContainer.innerHTML = `
                 <button class="btn-report" onclick="reportPost('${post._id}')">
                     <i class="fa-solid fa-flag"></i> Report
                 </button>
             `;
-            // Check if the current user is the author to show the delete button.
+
             if (currentUser && currentUser._id === post.user._id) {
-                postActionsHtml += `
+                actionsContainer.innerHTML += `
                     <button class="btn danger-btn small-btn" onclick="handleDeleteMyPost('${post._id}')" style="margin-left: 1rem;">
                         Delete Post
                     </button>
                 `;
             }
 
-            singlePostContainer.innerHTML = `
-                <div class="post-header">
-                    <h3>${post.title}</h3>
-                    <div class="post-actions" style="display: flex; align-items: center; gap: 0.5rem;">
-                        ${postActionsHtml} </div>
-                </div>
-                <p class="post-meta">By <strong>${post.user.username}</strong> on ${new Date(post.createdAt).toLocaleString()}</p>
-                <div class="post-content">${formatMessage(post.content)}</div>
-            `;
+            // 3. Build the rest of the post content securely
+            singlePostContainer.appendChild(
+                createElement('div', {
+                    className: 'post-header',
+                    children: [
+                        createElement('h3', { textContent: post.title }),
+                        actionsContainer
+                    ]
+                })
+            );
+            
+            singlePostContainer.appendChild(
+                createElement('p', {
+                    className: 'post-meta',
+                    children: [
+                        document.createTextNode('By '),
+                        createElement('strong', { textContent: post.user.username }),
+                        document.createTextNode(` on ${new Date(post.createdAt).toLocaleString()}`)
+                    ]
+                })
+            );
+
+            // For the post content, we create a div and set its textContent.
+            // We also add a style to respect newlines
+            const postContentDiv = createElement('div', {
+                className: 'post-content',
+                textContent: post.content 
+            });
+            postContentDiv.style.whiteSpace = 'pre-wrap'; // This makes \n render as line breaks
+            singlePostContainer.appendChild(postContentDiv);
 
             if (comments.length > 0) {
-                commentsContainer.innerHTML = '<h3>Comments</h3>' + comments.map(comment => {
-                    let commentActionsHtml = `
+                commentsContainer.innerHTML = ''; // Clear container
+                commentsContainer.appendChild(createElement('h3', { textContent: 'Comments' }));
+
+                comments.forEach(comment => {
+                    // Build comment actions HTML
+                    const commentActions = document.createElement('div');
+                    commentActions.className = 'comment-actions';
+                    commentActions.style.display = 'flex';
+                    commentActions.style.alignItems = 'center';
+                    commentActions.style.gap = '0.5rem';
+                    commentActions.innerHTML = `
                         <button class="btn-report" onclick="reportComment('${comment._id}', '${postId}')">
                             <i class="fa-solid fa-flag"></i> Report
                         </button>
                     `;
                     if (currentUser && currentUser._id === comment.user._id) {
-                        commentActionsHtml += `
+                        commentActions.innerHTML += `
                             <button class="btn danger-btn small-btn" onclick="handleDeleteMyComment('${comment._id}', '${postId}')" style="margin-left: 0.5rem;">
                                 Delete
                             </button>
                         `;
                     }
 
-                    return `
-                        <div class="comment-item">
-                            <p>${formatMessage(comment.content)}</p>
-                            <div class="comment-footer">
-                                <p class="comment-meta">By <strong>${comment.user.username}</strong> on ${new Date(comment.createdAt).toLocaleString()}</p>
-                                <div class="comment-actions" style="display: flex; align-items: center; gap: 0.5rem;">
-                                    ${commentActionsHtml} </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                    // Create the comment item securely
+                    const commentItem = createElement('div', {
+                        className: 'comment-item',
+                        children: [
+                            createElement('p', { 
+                                textContent: comment.content,
+                                children: null 
+                            }),
+                            createElement('div', {
+                                className: 'comment-footer',
+                                children: [
+                                    createElement('p', {
+                                        className: 'comment-meta',
+                                        children: [
+                                            document.createTextNode('By '),
+                                            createElement('strong', { textContent: comment.user.username }),
+                                            document.createTextNode(` on ${new Date(comment.createdAt).toLocaleString()}`)
+                                        ]
+                                    }),
+                                    commentActions
+                                ]
+                            })
+                        ]
+                    });
+                    // Apply the pre-wrap style to the comment content <p> tag
+                    commentItem.querySelector('p').style.whiteSpace = 'pre-wrap';
+                    commentsContainer.appendChild(commentItem);
+                });
             } else {
                 commentsContainer.innerHTML = '<h3>No comments yet.</h3>';
             }
@@ -2274,6 +2437,47 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- 7. UTILITY FUNCTIONS ---
 // These are helper functions used in various places throughout the script.
 // ===================================================================================
+
+/**
+ * Securely creates an HTML element and sets its properties.
+ * This is the safe alternative to using innerHTML with template literals.
+ * Any text passed to 'textContent' is rendered as plain text, not HTML.
+ * @param {string} tag - The HTML tag to create (e.g., 'div', 'h4', 'p').
+ * @param {object} options - An object containing properties to set.
+ * @param {string} [options.className] - The CSS class(es) to add.
+ * @param {string} [options.textContent] - The text content to safely add
+ * @param {Array<HTMLElement>} [options.children] - An array of child elements to append.
+ * @param {Object<string, string>} [options.dataset] - An object of data attributes to set.
+ * @param {Function} [options.onclick] - An event handler to attach.
+ * @param {object} [options.style] - An object of CSS styles to apply.
+ * @returns {HTMLElement} The newly created and secured element.
+ */
+function createElement(tag, { className, textContent, children, dataset, onclick, style }) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    
+    if (textContent) el.textContent = textContent; 
+    
+    if (onclick) el.onclick = onclick;
+    
+    if (dataset) {
+        for (const key in dataset) {
+            el.dataset[key] = dataset[key];
+        }
+    }
+    
+    if (style) {
+        for (const key in style) {
+            el.style[key] = style[key];
+        }
+    }
+
+    if (children && Array.isArray(children)) {
+        children.forEach(child => child && el.appendChild(child));
+    }
+    
+    return el;
+}
 
 /**
  * Utility function to limit how often a function can run.
