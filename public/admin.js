@@ -92,6 +92,79 @@ let state = {
     forum: { currentPage: 1, totalPages: 1, search: '' }
 };
 
+/**
+ * Writes the current application state (active section, page, and search)
+ * into the browser's URL query string without reloading the page.
+ */
+function updateURLFromState() {
+    // Get the state for the currently active section
+    const sectionState = state[currentSection]; 
+    const params = new URLSearchParams();
+    
+    params.set('section', currentSection);
+
+    // Only add page and search params if they are not the default
+    if (sectionState && sectionState.currentPage > 1) {
+        params.set('page', sectionState.currentPage);
+    }
+    if (sectionState && sectionState.search) {
+        params.set('search', sectionState.search);
+    }
+
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    // Use pushState to update the URL in the browser bar without a page reload
+    window.history.pushState({ path: newUrl }, '', newUrl);
+}
+
+/**
+ * Reads the state from the URL query string on page load.
+ * Sets the initial state, updates search inputs, and activates the correct sidebar link.
+ * @returns {string} The name of the section to load (e.g., "dashboard", "users").
+ */
+function loadStateFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    
+    const section = params.get('section') || 'dashboard'; // Default to dashboard
+    const page = parseInt(params.get('page'), 10) || 1;
+    const search = params.get('search') || '';
+
+    currentSection = section;
+
+    // Update the global state object with values from the URL
+    if (state[section]) {
+        state[section].currentPage = page;
+        state[section].search = search;
+    }
+
+    // Visually update the UI to match the loaded state
+    try {
+        // Set the sidebar "active" class correctly
+        navLinks.forEach(link => {
+            link.classList.toggle('active', link.dataset.section === section);
+        });
+        
+        // Show the correct section panel
+        adminSections.forEach(sec => {
+            sec.classList.toggle('active', sec.id === section);
+        });
+
+        // Fill the search bar for that section with the loaded search term
+        const searchInput = document.getElementById(`${section}SearchInput`);
+        if (searchInput) {
+            searchInput.value = search;
+        }
+    } catch (e) {
+        console.error("Error applying state to UI", e);
+        // Fallback to dashboard if something goes wrong
+        document.getElementById('dashboard').classList.add('active');
+        document.querySelector('.admin-sidebar a[data-section="dashboard"]').classList.add('active');
+        return 'dashboard';
+    }
+    
+    // Return the section name so the app knows what data to load
+    return section;
+}
+
 
 // --- 3. App Initialization ---
 // This listener waits for the entire HTML page to be loaded before running any JS.
@@ -199,11 +272,41 @@ async function checkAuthStatus() {
         // This is the key check: are they a user AND are they an admin?
         if (!data.success || !data.data.isAdmin) throw new Error('Admin access required');
 
-        // Success! Store the admin user and load the initial dashboard content.
+        // Success! Store the admin user.
         currentAdminUser = data.data;
         adminUsername.textContent = data.data.username;
-        loadDashboardStats(); // Load dashboard stats
-        loadUsers(1); // Pre-load the first page of the "Users" section
+
+        // Load the initial state (section, page, search) from the URL bar
+        const initialSection = loadStateFromURL();
+
+        // Now, load the specific section the URL asked for, using the page/search from the state
+        switch (initialSection) {
+            case 'dashboard': 
+                loadDashboardStats(); 
+                break;
+            case 'users': 
+                loadUsers(state.users.currentPage); 
+                break;
+            case 'chats': 
+                loadChats(state.chats.currentPage); 
+                break;
+            case 'resources': 
+                loadResources(state.resources.currentPage); 
+                break;
+            case 'counselors': 
+                loadCounselors(state.counselors.currentPage); 
+                break;
+            case 'appointments': 
+                loadAppointments(state.appointments.currentPage); 
+                break;
+            case 'forum': 
+                loadForumPostsAdmin(state.forum.currentPage); 
+                break;
+            default: // Fallback if URL is manipulated to an unknown section
+                document.getElementById('dashboard').classList.add('active'); // Show dashboard
+                document.querySelector('.admin-sidebar a[data-section="dashboard"]').classList.add('active'); // Fix sidebar
+                loadDashboardStats();
+        }
 
     } catch (error) {
         showNotification(error.message, 'error');
@@ -245,15 +348,18 @@ function switchSection(e) {
 
     currentSection = targetSection;
 
-    // Load (or re-load) the data for this section, always starting at page 1.
+    updateURLFromState(); // Update the URL to reflect the new section
+
+    // Load (or re-load) the data for this section. 
+    // This will respect the page/search already in the state (if any).
     switch (targetSection) {
         case 'dashboard': loadDashboardStats(); break;
-        case 'users': loadUsers(1); break;
-        case 'chats': loadChats(1); break; 
-        case 'resources': loadResources(1); break;
-        case 'counselors': loadCounselors(1); break;
-        case 'appointments': loadAppointments(1); break;
-        case 'forum': loadForumPostsAdmin(1); break;
+        case 'users': loadUsers(state.users.currentPage); break; 
+        case 'chats': loadChats(state.chats.currentPage); break; 
+        case 'resources': loadResources(state.resources.currentPage); break;
+        case 'counselors': loadCounselors(state.counselors.currentPage); break;
+        case 'appointments': loadAppointments(state.appointments.currentPage); break;
+        case 'forum': loadForumPostsAdmin(state.forum.currentPage); break;
     }
 }
 
@@ -367,6 +473,7 @@ async function loadUsers(page = 1) {
         // Update state and render pagination
         state.users = { ...state.users, totalPages: resultData.pages || 1, currentPage: resultData.currentPage || 1 };
         renderPagination('users', state.users);
+        updateURLFromState(); // Update the URL to reflect current state
     } catch (error) {
         showNotification(error.message, 'error');
         usersTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">Error loading users.</td></tr>';
@@ -375,29 +482,43 @@ async function loadUsers(page = 1) {
     }
 }
 
-/**
- * Renders the rows for the Users table.
- * Note the onclick functions pass all the data the modal needs. This is acceptable
- * since the data is simple (strings/bools) and not a huge object.
- */
 function renderUsersTable(users) {
+    usersTableBody.innerHTML = ''; // Clear the table body
     if (!users || users.length === 0) {
         usersTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">No users found</td></tr>';
         return;
     }
-    // Generate the HTML for each table row
-    usersTableBody.innerHTML = users.map(user => `
-        <tr>
-            <td>${user.username || 'N/A'}</td>
-            <td>${user.email || 'N/A'}</td>
-            <td>${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</td>
-            <td>${user.isAdmin ? '<i class="fa-solid fa-check admin-tick"></i>' : ''}</td>
-            <td class="cell-actions">
-                <button class="btn-icon edit" onclick="editUser('${user._id}', '${user.username}', '${user.email}', ${user.isAdmin})" title="Edit User"><i class="fas fa-edit"></i></button>
-                <button class="btn-icon delete" onclick="deleteUser('${user._id}')" title="Delete User"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
+
+    users.forEach(user => {
+        const tr = createElement('tr', {
+            children: [
+                createElement('td', { textContent: user.username || 'N/A' }),
+                createElement('td', { textContent: user.email || 'N/A' }),
+                createElement('td', { textContent: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A' }),
+                createElement('td', { 
+                    children: [ user.isAdmin ? createElement('i', { className: 'fa-solid fa-check admin-tick' }) : null ]
+                }),
+                createElement('td', {
+                    className: 'cell-actions',
+                    children: [
+                        createElement('button', {
+                            className: 'btn-icon edit',
+                            title: 'Edit User',
+                            onclick: () => editUser(user._id, user.username, user.email, user.isAdmin),
+                            children: [ createElement('i', { className: 'fas fa-edit' }) ]
+                        }),
+                        createElement('button', {
+                            className: 'btn-icon delete',
+                            title: 'Delete User',
+                            onclick: () => deleteUser(user._id),
+                            children: [ createElement('i', { className: 'fas fa-trash' }) ]
+                        })
+                    ]
+                })
+            ]
+        });
+        usersTableBody.appendChild(tr);
+    });
 }
 
 /**
@@ -507,6 +628,7 @@ async function loadChats(page = 1) {
         
         state.chats = { ...state.chats, totalPages: resultData.pages || 1, currentPage: resultData.currentPage || 1 };
         renderPagination('chats', state.chats);
+        updateURLFromState(); // Update the URL to reflect current state
     } catch (error) {
         showNotification(error.message, 'error');
         chatsTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">Error loading chats.</td></tr>';
@@ -516,22 +638,49 @@ async function loadChats(page = 1) {
 }
 
 function renderChatsTable(chats) {
+    chatsTableBody.innerHTML = ''; // Clear the table body
     if (!chats || chats.length === 0) {
         chatsTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">No chats found</td></tr>';
         return;
     }
-    chatsTableBody.innerHTML = chats.map(chat => `
-        <tr>
-            <td>${chat?.user?.username || 'Guest'}</td>
-            <td>${chat?.createdAt ? new Date(chat.createdAt).toLocaleString() : 'N/A'}</td>
-            <td class="cell-truncate">${chat?.message || 'No message'}</td>
-            <td>${chat?.flag ? `<span class="cell-flagged flag-label flag-${chat.flag}">${chat.flag}</span>` : '<span>-</span>'}</td>
-            <td class="cell-actions">
-                <button class="btn-icon view" onclick="viewChatDetails('${chat?._id}')" title="View Details"><i class="fas fa-eye"></i></button>
-                <button class="btn-icon delete" onclick="deleteChat('${chat?._id}')" title="Delete Chat"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
+    
+    chats.forEach(chat => {
+        const tr = createElement('tr', {
+            children: [
+
+                createElement('td', { textContent: chat?.user?.username || 'Guest' }),
+                createElement('td', { textContent: chat?.createdAt ? new Date(chat.createdAt).toLocaleString() : 'N/A' }),
+
+                createElement('td', { className: 'cell-truncate', textContent: chat?.message || 'No message' }),
+                createElement('td', { 
+                    children: [
+                        chat?.flag ? createElement('span', {
+                            className: `cell-flagged flag-label flag-${chat.flag}`,
+                            textContent: chat.flag
+                        }) : document.createTextNode('-')
+                    ]
+                }),
+                createElement('td', {
+                    className: 'cell-actions',
+                    children: [
+                        createElement('button', {
+                            className: 'btn-icon view',
+                            title: 'View Details',
+                            onclick: () => viewChatDetails(chat?._id),
+                            children: [ createElement('i', { className: 'fas fa-eye' }) ]
+                        }),
+                        createElement('button', {
+                            className: 'btn-icon delete',
+                            title: 'Delete Chat',
+                            onclick: () => deleteChat(chat?._id),
+                            children: [ createElement('i', { className: 'fas fa-trash' }) ]
+                        })
+                    ]
+                })
+            ]
+        });
+        chatsTableBody.appendChild(tr);
+    });
 }
 
 /**
@@ -639,6 +788,7 @@ async function loadResources(page = 1) {
         
         state.resources = { ...state.resources, totalPages: resultData.pages || 1, currentPage: resultData.currentPage || 1 };
         renderPagination('resources', state.resources);
+        updateURLFromState(); // Update the URL to reflect current state
     } catch (error) {
         showNotification(error.message, 'error');
         resourcesTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">Error loading resources.</td></tr>';
@@ -648,22 +798,47 @@ async function loadResources(page = 1) {
 }
  
 function renderResourcesTable(resources) {
+    resourcesTableBody.innerHTML = ''; // Clear table body
     if (!resources || resources.length === 0) {
         resourcesTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">No resources found. Create one!</td></tr>';
         return;
     }
-    resourcesTableBody.innerHTML = resources.map(resource => `
-        <tr>
-            <td>${resource.title}</td>
-            <td><span class="type-badge type-${resource.type}">${resource.type}</span></td>
-            <td>${resource.language.toUpperCase()}</td>
-            <td>${resource.tags.join(', ') || '-'}</td>
-            <td class="cell-actions">
-                <button class="btn-icon edit" onclick="openResourceModal('${resource._id}')" title="Edit Resource"><i class="fas fa-edit"></i></button>
-                <button class="btn-icon delete" onclick="deleteResource('${resource._id}')" title="Delete Resource"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
+    
+    resources.forEach(resource => {
+        const tr = createElement('tr', {
+            children: [
+                createElement('td', { textContent: resource.title }),
+                createElement('td', { 
+                    children: [ 
+                        createElement('span', { 
+                            className: `type-badge type-${resource.type}`, 
+                            textContent: resource.type // SAFE
+                        }) 
+                    ]
+                }),
+                createElement('td', { textContent: resource.language.toUpperCase() }),
+                createElement('td', { textContent: resource.tags.join(', ') || '-' }),
+                createElement('td', {
+                    className: 'cell-actions',
+                    children: [
+                        createElement('button', {
+                            className: 'btn-icon edit',
+                            title: 'Edit Resource',
+                            onclick: () => openResourceModal(resource._id),
+                            children: [ createElement('i', { className: 'fas fa-edit' }) ]
+                        }),
+                        createElement('button', {
+                            className: 'btn-icon delete',
+                            title: 'Delete Resource',
+                            onclick: () => deleteResource(resource._id),
+                            children: [ createElement('i', { className: 'fas fa-trash' }) ]
+                        })
+                    ]
+                })
+            ]
+        });
+        resourcesTableBody.appendChild(tr);
+    });
 }
  
 /**
@@ -795,6 +970,7 @@ async function loadCounselors(page = 1) {
         
         state.counselors = { ...state.counselors, totalPages: resultData.pages || 1, currentPage: resultData.currentPage || 1 };
         renderPagination('counselors', state.counselors);
+        updateURLFromState(); // Update the URL to reflect current state
     } catch (error) {
         showNotification(error.message, 'error');
         counselorsTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">Error loading counselors.</td></tr>';
@@ -804,22 +980,47 @@ async function loadCounselors(page = 1) {
 }
 
 function renderCounselorsTable(counselors) {
+    counselorsTableBody.innerHTML = ''; // Clear table body
     if (!counselors || counselors.length === 0) {
         counselorsTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">No counselors found. Create one!</td></tr>';
         return;
     }
-    counselorsTableBody.innerHTML = counselors.map(c => `
-        <tr>
-            <td>${c.user.username}</td>
-            <td>${c.user.email}</td>
-            <td>${c.specialty}</td>
-            <td>${c.isActive ? '<span style="color: var(--success);">Active</span>' : '<span style="color: var(--error);">Inactive</span>'}</td>
-            <td class="cell-actions">
-                <button class="btn-icon edit" onclick="openCounselorModal('${c._id}')" title="Edit Counselor"><i class="fas fa-edit"></i></button>
-                <button class="btn-icon delete" onclick="deleteCounselor('${c._id}')" title="Delete Counselor"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
+    
+    counselors.forEach(c => {
+        const tr = createElement('tr', {
+            children: [
+                createElement('td', { textContent: c.user.username }),
+                createElement('td', { textContent: c.user.email }),
+                createElement('td', { textContent: c.specialty }),
+                createElement('td', {
+                    children: [
+                        createElement('span', {
+                            style: { color: c.isActive ? 'var(--success)' : 'var(--error)' },
+                            textContent: c.isActive ? 'Active' : 'Inactive'
+                        })
+                    ]
+                }),
+                createElement('td', {
+                    className: 'cell-actions',
+                    children: [
+                        createElement('button', {
+                            className: 'btn-icon edit',
+                            title: 'Edit Counselor',
+                            onclick: () => openCounselorModal(c._id),
+                            children: [ createElement('i', { className: 'fas fa-edit' }) ]
+                        }),
+                        createElement('button', {
+                            className: 'btn-icon delete',
+                            title: 'Delete Counselor',
+                            onclick: () => deleteCounselor(c._id),
+                            children: [ createElement('i', { className: 'fas fa-trash' }) ]
+                        })
+                    ]
+                })
+            ]
+        });
+        counselorsTableBody.appendChild(tr);
+    });
 }
 
 /**
@@ -969,6 +1170,7 @@ async function loadAppointments(page = 1) {
         
         state.appointments = { ...state.appointments, totalPages: resultData.pages || 1, currentPage: resultData.currentPage || 1 };
         renderPagination('appointments', state.appointments);
+        updateURLFromState(); // Update the URL to reflect current state
     } catch (error) {
         showNotification(error.message, 'error');
         appointmentsTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">Error loading appointments.</td></tr>';
@@ -978,25 +1180,41 @@ async function loadAppointments(page = 1) {
 }
 
 function renderAppointmentsTable(appointments) {
+    appointmentsTableBody.innerHTML = ''; // Clear table body
     if (!appointments || appointments.length === 0) {
         appointmentsTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">No appointments found.</td></tr>';
         return;
     }
-    appointmentsTableBody.innerHTML = appointments.map(apt => `
-        <tr>
-            <td>${apt.user?.username || 'N/A'}</td>
-            <td>${apt.counselor?.user?.username || 'N/A'}</td>
-            <td>${new Date(apt.startTime).toLocaleString()}</td>
-            <td><span class="status-badge status-${apt.status}">${apt.status.replace(/_/g, ' ')}</span></td>
-            <td class="cell-actions">
-                <button class="btn-icon edit" 
-                        onclick="openAppointmentStatusModal('${apt._id}', '${apt.status}')" 
-                        title="Change Status">
-                    <i class="fas fa-edit"></i>
-                </button>
-            </td>
-        </tr>
-    `).join('');
+    
+    appointments.forEach(apt => {
+        const tr = createElement('tr', {
+            children: [
+                createElement('td', { textContent: apt.user?.username || 'N/A' }),
+                createElement('td', { textContent: apt.counselor?.user?.username || 'N/A' }),
+                createElement('td', { textContent: new Date(apt.startTime).toLocaleString() }),
+                createElement('td', { 
+                    children: [ 
+                        createElement('span', { 
+                            className: `status-badge status-${apt.status}`, 
+                            textContent: apt.status.replace(/_/g, ' ') 
+                        }) 
+                    ]
+                }),
+                createElement('td', {
+                    className: 'cell-actions',
+                    children: [
+                        createElement('button', {
+                            className: 'btn-icon edit',
+                            title: 'Change Status',
+                            onclick: () => openAppointmentStatusModal(apt._id, apt.status),
+                            children: [ createElement('i', { className: 'fas fa-edit' }) ]
+                        })
+                    ]
+                })
+            ]
+        });
+        appointmentsTableBody.appendChild(tr);
+    });
 }
 
 /**
@@ -1053,6 +1271,7 @@ async function loadForumPostsAdmin(page = 1) {
         
         state.forum = { ...state.forum, totalPages: resultData.pages || 1, currentPage: resultData.currentPage || 1 };
         renderPagination('forum', state.forum);
+        updateURLFromState(); // Update the URL to reflect current state
     } catch (error) {
         showNotification(error.message, 'error');
         forumPostsTableBody.innerHTML = '<tr><td colspan="5" class="loading-row">Error loading posts.</td></tr>';
@@ -1062,29 +1281,43 @@ async function loadForumPostsAdmin(page = 1) {
 }
 
 function renderForumPostsTable(posts) {
+    forumPostsTableBody.innerHTML = ''; // Clear table body
     if (!posts || posts.length === 0) {
         forumPostsTableBody.innerHTML = '<tr><td colspan="6" class="loading-row">No forum posts found.</td></tr>';
         return;
     }
-    forumPostsTableBody.innerHTML = posts.map(post => {
-        // Check if the post is flagged and add a CSS class to the row
+    
+    posts.forEach(post => {
         const isFlagged = post.reportCount > 0;
         const flaggedClass = isFlagged ? 'flagged-row' : '';
 
-        return `
-            <tr class="${flaggedClass}"> <td>${post.title}</td>
-                <td>${post.user.username}</td>
-                <td>${new Date(post.createdAt).toLocaleString()}</td>
-                <td>${post.isAnonymous ? 'Yes' : 'No'}</td>
-                
-                <td>${isFlagged ? `<strong>${post.reportCount}</strong>` : '0'}</td>
-
-                <td class="cell-actions">
-                    <button class="btn-icon delete" onclick="deletePostAdmin('${post._id}')" title="Delete Post"><i class="fas fa-trash"></i></button>
-                </td>
-            </tr>
-        `;
-    }).join('');
+        const tr = createElement('tr', {
+            className: flaggedClass,
+            children: [
+                createElement('td', { textContent: post.title }),
+                createElement('td', { textContent: post.user.username }),
+                createElement('td', { textContent: new Date(post.createdAt).toLocaleString() }),
+                createElement('td', { textContent: post.isAnonymous ? 'Yes' : 'No' }),
+                createElement('td', { 
+                    children: [ 
+                        createElement(isFlagged ? 'strong' : 'span', { textContent: post.reportCount.toString() })
+                    ] 
+                }),
+                createElement('td', {
+                    className: 'cell-actions',
+                    children: [
+                        createElement('button', {
+                            className: 'btn-icon delete',
+                            title: 'Delete Post',
+                            onclick: () => deletePostAdmin(post._id),
+                            children: [ createElement('i', { className: 'fas fa-trash' }) ]
+                        })
+                    ]
+                })
+            ]
+        });
+        forumPostsTableBody.appendChild(tr);
+    });
 }
 
 
