@@ -1,7 +1,8 @@
 # --- Security & Sensitive Files ---
 # Never commit sensitive files, environment variables, or private keys.
-.env
+.env*
 config/*.json
+config/*.js
 *.pem
 *.key
 *.crt
@@ -11,6 +12,7 @@ config/*.json
 # --- Database Files ---
 # Don't commit local database files or dumps.
 *.sqlite
+*.db
 *.sqlite3
 dump.rdb
 

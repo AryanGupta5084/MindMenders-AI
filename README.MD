@@ -1,49 +1,78 @@
 # Sahara (सहारा): Your Space to be Heard
 
-Sahara is a comprehensive, secure, and empathetic mental wellness platform designed for youth. It combines a multi-stage AI system for immediate support with a full suite of tools for proactive wellness, professional help, and peer connection.
+Sahara is a comprehensive, secure, and empathetic mental wellness platform designed for youth. It combines a multi-stage AI system for immediate support with a full suite of tools for proactive wellness, professional help, and peer connection. It is built on a modern microservice architecture, ensuring scalability and separation of concerns.
 
----
+## ✨ Platform Features
 
-## ✨ Features
+Sahara is not a single app but a complete, multi-portal wellness ecosystem built on a secure microservice architecture. It consists of a main Node.js/Express API, a separate Python/Flask AI microservice, and three distinct frontend applications for users, counselors, and administrators.
 
-The platform is a complete ecosystem with the following integrated features:
+### 1. Dual-Stage AI & Accessibility System
 
-* **🧠 AI-Powered Companion:**
-    * **Dual-Stage AI:** Uses a custom-trained **BERT model** for accurate sentiment analysis (anxiety, depression, stress, suicidal) and **Google's Gemini AI** for generating empathetic, culturally-aware responses.
-    * **Multi-Language Support:** Seamlessly handles conversations in multiple Indian languages through real-time translation.
-    * **Voice Accessibility:** Supports both **Speech-to-Text** (voice input) and **Text-to-Speech** (reads responses aloud) for a more natural and accessible interaction.
+The platform's intelligence relies on a unique two-part AI system to provide contextual, empathetic, and safe interactions.
 
-* **🛠️ Proactive Wellness Tools:**
-    * **Daily Mood Tracking & Journaling:** A private, encrypted journal for users to log their daily mood and thoughts. The system automatically analyzes sentiment to provide insights.
-    * **Personal Analytics Dashboard:** Visual charts display a user's mood trends and sentiment distribution over time, empowering them with self-awareness.
-    * **Interactive Guided Exercises:** AI-guided sessions based on CBT and Mindfulness principles that teach users practical coping skills in real-time.
-    * **Gamification:** A **wellness streak** and achievement system rewards users for consistent journaling, helping to build positive habits.
+- **Custom Sentiment Analysis:** User input is first sent to a dedicated Python microservice running a custom-trained **BERT model (PyTorch/HuggingFace)**. This model is fine-tuned *specifically* for mental wellness, classifying text into five key categories: `anxiety`, `depression`, `stress`, `suicidal`, or `neutral`.
+- **Generative AI Companion:** The main Node.js backend takes this sentiment analysis (e.g., "depression") and injects it into a detailed prompt for the **Google Gemini API** (`@google/generative-ai`), instructing it to respond with the appropriate empathy, techniques, and conversational tone.
+- **Multi-Language Translation:** The entire chat pipeline is wrapped in a translation utility, allowing users to converse in multiple Indian languages. The system auto-translates user input to English for the AI models, then translates the AI's English response back to the user's native language.
+- **Speech-to-Text & Text-to-Speech:** The client-side chat interface integrates the browser's Web Speech API, allowing users to dictate messages via a microphone and have the AI's responses read aloud.
+- **Conversational Memory:** The chat controller maintains context by fetching the recent conversation history and appending it to new prompts for the Gemini AI, enabling multi-turn conversational awareness.
 
-* **🤝 Human Connection:**
-    * **Counselor Booking System:** A complete scheduling system for users to book appointments with professional counselors based on their real-time availability.
-    * **Live Chat with Counselors:** A real-time, one-on-one chat platform using WebSockets (Socket.io) for confidential sessions at the scheduled appointment time.
-    * **Peer Support Forum:** A moderated community forum where users can anonymously or publicly share experiences and support each other.
+### 2. Privacy, Security & Authentication
 
-* **📚 Content & Management:**
-    * **Wellness Resource Hub:** A curated library of articles, videos, and audio content, filterable by language and tags.
-    * **Comprehensive Admin & Counselor Dashboards:** Separate, secure portals for administrators to manage all platform data and for counselors to manage their appointments.
+Security and privacy are foundational to the platform, with protections at the database, server, and client levels.
 
----
+- **Database-Level Encryption (AES-256-GCM):** All sensitive user-generated data is encrypted at rest using Node's `crypto` module. Mongoose schemas automatically encrypt content *before* it is saved, ensuring that **journal entries**, **AI chat logs**, and **live counselor chats** are unreadable in the database.
+- **JWT Authentication with Server-Side Blocklisting:** The system uses JWTs for authentication but adds a critical security layer. When a user logs out, their token's unique `sessionId` is added to a `blockedSessionIds` array on their User document. The `protect` middleware validates every request against this database array, instantly invalidating any logged-out token, even if it hasn't expired.
+- **Dual User System & Automatic Data Purging:** The platform supports both full registered accounts (with `bcryptjs` hashed passwords) and a "Continue as Guest" mode. All guest accounts—and their associated encrypted chat data—are automatically and permanently deleted from the database after 7 days using a **MongoDB TTL (Time-To-Live) Index** on the `expireAt` field.
+- **Role-Based Access Control (RBAC):** Admin routes are protected by a dedicated `isAdmin` middleware that performs a fresh database check on *every request* to verify admin status, rather than trusting the (potentially outdated) claims within the JWT.
+- **Secure API & Server:** The Express server implements `helmet` for secure HTTP headers (including a Content Security Policy), `express-rate-limit` to prevent API abuse, and a strict CORS policy controlled via environment variables.
+
+### 3. User Wellness Toolkit
+
+These are the core interactive features available to registered users through the main application.
+
+- **Private Daily Journal:** An encrypted, one-entry-per-day journal system (enforced by a unique compound database index) that allows users to record their mood and thoughts.
+- **Gamification (Wellness Streak):** The platform gamifies positive habits by tracking a user's consecutive daily journal entries, storing a `journalStreak` on the User model, and unlocking achievements.
+- **Personal Analytics Dashboard:** A "My Progress" modal that uses **Chart.js** to render visualizations of a user's wellness data. This data is generated by backend Mongoose aggregation pipelines that analyze the user's mood and journal sentiment history.
+- **Standardized Screening Tools:** Provides clinically-recognized questionnaires (PHQ-9 for depression, GAD-7 for anxiety), which are auto-seeded into the database on startup. The system scores user submissions against the test's rules and provides a clear interpretation and recommendation.
+- **AI-Guided Interactive Exercises:** A library of structured CBT and Mindfulness exercises. This feature uses the Gemini AI as a conversational guide to provide validating, transitional phrases between each step, transforming a static form into an interactive therapy session.
+- **Offline PWA Functionality:** As a full Progressive Web App, the platform caches its core "app shell" (HTML/CSS/JS) and dynamic content (like wellness resources), allowing users to access the app and cached information even without an internet connection.
+- **Wellness Resource Hub:** A curated library of articles, videos, and audio content, filterable by language and tags.
+
+### 4. Human Connection: Counselors & Community
+
+The platform connects users with professionals and peers through a complete scheduling and communication suite.
+
+- **Counselor Booking System:** A multi-step UI allows users to view counselor profiles (managed by the admin), check their weekly availability, and book an appointment in an available time slot.
+- **Transaction-Safe Scheduling:** The booking endpoint is built to prevent race conditions. It uses a **Mongoose Database Transaction** to atomically check for slot availability *and* create the new appointment, making it impossible for two users to book the same slot at the same millisecond.
+- **Automated Calendar Invites:** Upon a successful booking, the server uses `nodemailer` and the `ics` library to automatically generate and email an `.ics` calendar file invitation to both the user and the counselor.
+- **Private, Real-Time Sessions:** The platform facilitates live appointments via a secure, real-time chat powered by **Socket.IO**.
+- **Secure Socket Authentication:** All socket connections are authenticated via JWT. The server handler then verifies that the authenticated user is a valid participant (either the patient or the *correct* counselor) for that specific appointment ID before allowing them to join the Socket.IO room, ensuring total session privacy.
+- **Anonymous Community Forum:** A peer-support forum where users can create posts and comments with an "Post Anonymously" toggle. When checked, the backend controller intercepts the request and masks the user's identity, displaying "Anonymous" to all other users.
+- **Spam-Proof Reporting:** Users can report any post or comment for moderation. The backend uses MongoDB's **`$addToSet`** operator to add the user's ID to a `reports` array, which atomically prevents the same user from spam-reporting the same content multiple times.
+
+### 5. Platform Management (Admin & Counselor Portals)
+
+The project includes two additional, separate applications for platform operation, served from the same backend.
+
+- **Comprehensive Admin Panel:** A secure, dedicated SPA (`admin.html`) that provides full administrative control over the entire application. Admins can perform full CRUD operations on Users, Counselors, Wellness Resources, Appointments, and Forum content.
+- **Scalable Admin UI (Server-Side Logic):** The admin dashboard is built to scale, using **server-side pagination and search** for all data tables. This is powered by complex backend Mongoose aggregation pipelines (`$lookup`, `$match`, etc.) to ensure the UI remains fast and responsive, even with millions of database records.
+- **Transactional Cascading Deletes:** The admin panel features robust data integrity. When an admin deletes a high-level entity (like a User), the backend triggers a database transaction to atomically delete *all* associated content (posts, comments, appointments, chats, etc.), preventing any orphaned data.
+- **Dedicated Counselor Dashboard:** A separate, secure portal (`counselor.html`) where verified counselors can log in to manage their professional profile, set their weekly availability schedule (which feeds the booking engine), and join their scheduled real-time chat sessions with patients.
+- **Global Analytics View:** The admin dashboard features charts for platform-wide analytics, like global user mood distribution.
 
 ## 🛠 Tech Stack
 
--   **Backend:** Node.js, Express.js, Socket.io (for real-time chat)
--   **Frontend:** HTML5, CSS3, Vanilla JavaScript (SPA architecture)
--   **AI/ML:**
-    -   **Sentiment Analysis:** Python, Flask, PyTorch, HuggingFace Transformers (BERT)
-    -   **Generative AI:** Google Gemini (via `@google/generative-ai`)
--   **Database:** MongoDB (with Mongoose ODM)
--   **Authentication:** JSON Web Tokens (JWT)
-
----
+- **Backend:** Node.js, Express.js, Socket.io (for real-time chat)
+- **Frontend:** HTML5, CSS3, Vanilla JavaScript (SPA architecture)
+- **AI/ML:**
+  - **Sentiment Analysis:** Python, Flask, PyTorch, HuggingFace Transformers (BERT)
+  - **Generative AI:** Google Gemini (via `@google/generative-ai`)
+- **Database:** MongoDB (with Mongoose ODM)
+- **Authentication:** JSON Web Tokens (JWT)
 
 ## 📁 Project Structure
 
+```
 sahara/
 ├── app.js                  # Main Express server with Socket.io integration
 ├── controllers/            # Business logic for all features (chat, booking, journal, etc.)
@@ -52,22 +81,24 @@ sahara/
 ├── public/                 # Frontend SPAs (user, admin, counselor)
 ├── routes/                 # API route definitions for all features
 ├── sentiment_service/      # Self-contained Python/Flask sentiment microservice
-├── socket/                 # Socket.io connection and event handling logic
+├── socket/                 # Socket.io connection and event handling logic [Note: This is socketHandler.js]
 ├── utils/                  # Helper utilities (encryption, translation, etc.)
 ├── .env                    # Environment variables (NOT committed)
 └── package.json            # Node.js dependencies and scripts
+```
 
-
----
+*(Directory structure self-corrected based on provided files.)*
 
 ## ⚡️ Quick Start
 
 ### 1. Prerequisites
--   Node.js & npm
--   Python & pip
--   MongoDB instance (local or cloud)
+
+- Node.js & npm
+- Python & pip
+- MongoDB instance (local or cloud)
 
 ### 2. Setup
+
 Clone the repository and install dependencies for both the Node.js server and the Python service.
 
 ```bash
@@ -82,9 +113,11 @@ cd ..
 ```
 
 ### 3. Environment Variables
-Create a .env file in the root directory and populate it with your configuration (MongoDB URI, API keys, secrets).
+
+Create a `.env` file in the root directory and populate it with your configuration (MongoDB URI, API keys, secrets).
 
 ### 4. Run the Application
+
 You can use the provided PowerShell script (for Windows) to launch both services with a health check.
 
 ```bash
@@ -96,55 +129,39 @@ Alternatively, run each service in a separate terminal:
 
 ```bash
 # Terminal 1: Start the Sentiment Service
-cd sentiment_service && python app.py
+npm run sentiment-service
 
 # Terminal 2: Start the Node.js Backend
 npm run dev
 ```
 
 ### 5. Access the App
--   **Main App:** http://localhost:5000
--   **Admin Panel:** http://localhost:5000/admin.html
--   **Counselor Dashboard:** http://localhost:5000/counselor.html
 
----
+- **Main App:** `http://localhost:5000`
+- **Admin Panel:** `http://localhost:5000/admin.html`
+- **Counselor Dashboard:** `http://localhost:5000/counselor.html`
 
-## 🔌 API Endpoints (Summary)
--   **Authentication:** `POST /api/users/register`, `POST /api/users/login`, `POST /api/users/guest`
--   **AI Chat:** `POST /api/chat/message`, `GET /api/chat/history`, `GET /api/chat/sessions`
--   **Booking:** `GET /api/booking/counselors`, `GET /api/booking/slots/:id`, `POST /api/booking/appointments`, `GET /api/booking/my-appointments`
--   **Forum:** `GET /api/forum/posts`, `POST /api/forum/posts`, `POST /api/forum/posts/:id/comments`
--   **Journaling:** `GET /api/journal`, `POST /api/journal`, `GET /api/journal/stats`
--   **Exercises:** `GET /api/exercises`, `POST /api/exercises/start`
--   **Resources:** `GET /api/resources`
--   **Counselor:** `GET /api/counselors/my-appointments`
--   **Admin:** Full CRUD and management routes under `/api/admin/...`
+## 📌 API Endpoints (Summary)
 
----
-
-## 🧠 AI/ML Details
--   **Sentiment Service:** A Python Flask app exposes an `/analyze` endpoint. It uses a custom-trained BERT model (fine-tuned with PyTorch and HuggingFace Transformers) to perform real-time sentiment analysis on user text.
--   **Gemini Integration:** The Node.js backend sends user messages, along with the detected sentiment and conversational history, to the Google Gemini API to generate empathetic and context-aware responses.
-
----
+- **Authentication:** `POST /api/users/register`, `POST /api/users/login`, `POST /api/users/guest`
+- **AI Chat:** `POST /api/chat/message`, `GET /api/chat/history`, `GET /api/chat/sessions`
+- **Booking:** `GET /api/booking/counselors`, `GET /api/booking/slots/:id`, `POST /api/booking/appointments`, `GET /api/booking/my-appointments`
+- **Forum:** `GET /api/forum/posts`, `POST /api/forum/posts`, `POST /api/forum/posts/:id/comments`
+- **Journaling:** `GET /api/journal`, `POST /api/journal`, `GET /api/journal/stats`
+- **Exercises:** `GET /api/exercises`, `POST /api/exercises/start`
+- **Resources:** `GET /api/resources`
+- **Counselor:** `GET /api/counselors/my-appointments`
+- **Admin:** Full CRUD and management routes under `/api/admin/...`
 
 ## 🆘 Crisis Response
+
 The chatbot includes an automated crisis detection system that:
--   Identifies potential suicidal ideation via the sentiment model.
--   Immediately provides localized helpline information within the chat response.
--   Flags the conversation in the database for potential review by administrators.
 
----
+- Identifies potential suicidal ideation via the custom sentiment model.
+- Immediately provides localized helpline information within the chat response.
+- Flags the conversation in the database for potential review by administrators.
 
-## 🔒 Security & Privacy
--   **End-to-End Encryption:** All chat messages and journal entries are encrypted at rest in the database using AES-256-GCM.
--   **Secure Authentication:** All protected routes require a valid JWT. The admin middleware performs real-time database checks to prevent unauthorized access from users with outdated credentials.
--   **Guest Data Privacy:** All data associated with guest users is automatically deleted from the database after a set period using a MongoDB TTL index.
--   **Standard Security Measures:** The application uses helmet for secure headers, express-rate-limit to prevent abuse, and a strict CORS policy.
-
----
-
-## 🙏 Acknowledgments
--   Google Gemini for generative AI
--   HuggingFace Transformers for the BERT model and tokenizer
--   MongoDB for the database solution
+🙏 **Acknowledgments**  
+Google Gemini for generative AI  
+HuggingFace Transformers for the BERT model and tokenizer  
+MongoDB for the database solution  
