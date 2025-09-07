@@ -87,7 +87,6 @@ sahara/
 └── package.json            # Node.js dependencies and scripts
 ```
 
-*(Directory structure self-corrected based on provided files.)*
 
 ## ⚡️ Quick Start
 
@@ -161,7 +160,13 @@ The chatbot includes an automated crisis detection system that:
 - Immediately provides localized helpline information within the chat response.
 - Flags the conversation in the database for potential review by administrators.
 
-🙏 **Acknowledgments**  
-Google Gemini for generative AI  
-HuggingFace Transformers for the BERT model and tokenizer  
-MongoDB for the database solution  
+## 🙏 Acknowledgments
+
+- Google Gemini for generative AI  
+- HuggingFace Transformers for the BERT model and tokenizer  
+- MongoDB for the database solution  
+
+
+## ⚖️ License
+
+This project is licensed under the **MIT License**. See the full license text in the [LICENSE.txt](LICENSE.txt) file for details.
