@@ -11,7 +11,7 @@
   },
   "keywords": ["mental health", "chatbot", "express", "socket.io"],
   "author": "Aryan Gupta",
-  "license": "ISC",
+  "license": "MIT",
   "description": "A mental health chatbot using BERT sentiment analysis and Google Gemini AI",
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
