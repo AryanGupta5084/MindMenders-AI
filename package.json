@@ -14,7 +14,7 @@
   "license": "MIT",
   "description": "A mental health chatbot using BERT sentiment analysis and Google Gemini AI",
   "dependencies": {
-    "@google/generative-ai": "^0.24.0",
+    "@google/generative-ai": "^0.24.1",
     "@vitalets/google-translate-api": "^9.2.1",
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
