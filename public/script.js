@@ -2266,20 +2266,37 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const result = await response.json();
             if (!result.success) throw new Error(result.error);
-            
+
+            // Clear the container
+            screeningListContainer.innerHTML = '';
+
             if (result.data.length === 0) {
                 screeningListContainer.innerHTML = '<p>No screening tests are available at this time.</p>';
                 return;
             }
 
-            // Render the tests using the same style as the exercise cards
-            screeningListContainer.innerHTML = result.data.map(test => `
-                <div class="exercise-card" onclick="startScreeningTest('${test.testKey}')">
+            // Loop through the tests and create DOM elements programmatically
+            result.data.forEach(test => {
+                // 1. Create the main card element
+                const card = document.createElement('div');
+                card.className = 'exercise-card';
+
+                // 2. Set its inner HTML (this is safe as this data is from our own API)
+                card.innerHTML = `
                     <h4>${test.fullName} (${test.testKey.toUpperCase()})</h4>
                     <p>${test.description}</p>
                     <span class="category-tag">Screening Tool</span>
-                </div>
-            `).join('');
+                `;
+
+                // 3. Attach the click event listener with JavaScript. This is the key fix.
+                card.addEventListener('click', () => {
+                    // This now correctly calls the function when a card is clicked
+                    startScreeningTest(test.testKey);
+                });
+
+                // 4. Append the fully functional card to the container
+                screeningListContainer.appendChild(card);
+            });
 
         } catch (error) {
             screeningListContainer.innerHTML = `<p class="error-text">Could not load screening tests. ${error.message}</p>`;
