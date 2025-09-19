@@ -278,10 +278,21 @@ router.get('/chats', async (req, res) => {
       const totalResult = await Chat.aggregate(totalPipeline);
       const total = totalResult.length > 0 ? totalResult[0].total : 0;
       
-      chats = chats.map(chat => ({
-        ...chat,
-        message: chat.message ? decrypt(chat.message) : '',
-      }));
+      chats = chats.map(chat => {
+          let decryptedMessage = '';
+          // Only attempt to decrypt if chat.message is a non-empty string containing colons, 
+          // which indicates it's likely in our encrypted format.
+          if (chat.message && typeof chat.message === 'string' && chat.message.includes(':')) {
+              try {
+                  decryptedMessage = decrypt(chat.message);
+              } catch (e) {
+                  // If decryption fails for any reason, log it but don't crash.
+                  console.error(`Could not decrypt a chat message (ID: ${chat._id}), showing placeholder.`);
+                  decryptedMessage = '[Could not load message]';
+              }
+          }
+          return { ...chat, message: decryptedMessage };
+      });
       
       res.status(200).json({
         success: true,
