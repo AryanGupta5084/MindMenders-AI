@@ -388,7 +388,7 @@ const getChatSessions = async (req, res) => {
     // This is a more advanced database query to get a clean list of sessions.
     const sessions = await Chat.aggregate([
       // Stage 1: Find all chats belonging to this user.
-      { $match: { user: mongoose.Types.ObjectId(userId) } },
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
       // Stage 2: Sort them so we can find the earliest message easily.
       { $sort: { createdAt: -1 } },
       // Stage 3: Group all messages by their `sessionId`.
