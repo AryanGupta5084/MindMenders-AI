@@ -142,9 +142,3 @@ exports.startOrContinueExercise = async (req, res) => {
     res.status(500).json({ success: false, data: null, error: 'Server error processing exercise step.' });
   }
 };
-
-// Bundle up all our functions to be used by the router.
-module.exports = {
-    getExercises,
-    startOrContinueExercise
-};
