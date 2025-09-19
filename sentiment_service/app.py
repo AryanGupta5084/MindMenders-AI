@@ -52,10 +52,10 @@ def load_model_and_config():
         # Load the class labels (e.g., 'happy', 'sad', 'suicidal').
         label_encoder_classes = np.load('model/label_encoder_classes.npy', allow_pickle=True).tolist()
         
-        print(f"✅ Model and tokenizer loaded successfully. Running on {device}.")
+        print(f"Model and tokenizer loaded successfully. Running on {device}.")
         return True
     except Exception as e:
-        print(f"❌ Error loading model: {str(e)}")
+        print(f"Error loading model: {str(e)}")
         print("   Please ensure the 'model/' directory contains all necessary files.")
         return False
 
