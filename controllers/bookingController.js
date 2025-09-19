@@ -373,13 +373,3 @@ exports.cancelAppointment = async (req, res) => {
         res.status(500).json({ success: false, data: null, error: 'Failed to cancel appointment.' });
     }
 };
-
-// --- EXPORTS ---
-// Make all our controller functions available to our router file.
-module.exports = { 
-  getPublicCounselors, 
-  getAvailableSlots, 
-  bookAppointment, 
-  getMyAppointments, 
-  cancelAppointment
-};

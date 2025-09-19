@@ -309,11 +309,3 @@ exports.deleteMyJournalEntry = async (req, res) => {
         res.status(500).json({ success: false, data: null, error: 'Server error while deleting entry.' });
     }
 };
-
-// Export all the functions so our router can use them.
-module.exports = {
-    createJournalEntry,
-    getJournalEntries,
-    getJournalStats,
-    deleteMyJournalEntry
-}

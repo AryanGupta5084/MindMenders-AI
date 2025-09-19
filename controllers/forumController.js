@@ -312,18 +312,3 @@ exports.reportComment = async (req, res) => {
         res.status(500).json({ success: false, error: 'Server error while reporting comment.' });
     }
 };
-
-// Make sure all our functions are exported so the router can use them.
-module.exports = {
-  getAllPosts,
-  getPostById,
-  createPost,
-  addComment,
-  deleteMyPost,
-  deleteMyComment,
-  getAllPostsForAdmin,
-  getPostByIdForAdmin,
-  deletePostByAdmin,
-  reportPost, 
-  reportComment
-};
