@@ -210,12 +210,3 @@ exports.getMe = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
-
-// Export all the functions so our router can use them.
-module.exports = {
-    registerUser,
-    loginUser,
-    logout,
-    guestLogout,
-    getMe
-}
