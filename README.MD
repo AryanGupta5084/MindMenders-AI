@@ -1,22 +1,22 @@
 # Sahara (सहारा): Your Space to be Heard
 
-Sahara is a comprehensive, secure, and empathetic mental wellness platform designed for youth. It combines a multi-stage AI system for immediate support with a full suite of tools for proactive wellness, professional help, and peer connection. It is built on a modern microservice architecture, ensuring scalability and separation of concerns.
+Sahara is a **comprehensive, secure, and empathetic mental wellness platform** designed for youth. It combines a **multi-stage AI system** for immediate support with a full suite of tools for proactive wellness, professional help, and peer connection. It is built on a **modern microservice architecture**, ensuring **scalability, privacy, and separation of concerns**.
 
 ## ✨ Platform Features
 
-Sahara is not a single app but a complete, multi-portal wellness ecosystem built on a secure microservice architecture. It consists of a main Node.js/Express API, a separate Python/Flask AI microservice, and three distinct frontend applications for users, counselors, and administrators.
+Sahara is not a single app but a complete, **multi-portal wellness ecosystem** built on a secure microservice architecture. It consists of a **Main Node.js/Express API**, a separate **Python/Flask AI microservice**, and **Three distinct frontend SPAs** for **users, counselors, and administrators**.
 
-### 1. Dual-Stage AI & Accessibility System
+### 1️⃣ Dual-Stage AI & Accessibility System 🤖
 
-The platform's intelligence relies on a unique two-part AI system to provide contextual, empathetic, and safe interactions.
+The platform's intelligence relies on a unique **two-part AI pipeline** to provide **contextual, empathetic, and safe interactions**.
 
-- **Custom Sentiment Analysis:** User input is first sent to a dedicated Python microservice running a custom-trained **BERT model (PyTorch/HuggingFace)**. This model is fine-tuned *specifically* for mental wellness, classifying text into five key categories: `anxiety`, `depression`, `stress`, `suicidal`, or `neutral`.
-- **Generative AI Companion:** The main Node.js backend takes this sentiment analysis (e.g., "depression") and injects it into a detailed prompt for the **Google Gemini API** (`@google/generative-ai`), instructing it to respond with the appropriate empathy, techniques, and conversational tone.
+- **Custom Sentiment Analysis:** User input is first sent to a dedicated Python microservice running a custom-trained **BERT model (PyTorch/HuggingFace)** powered by [**Hugging Face Transformers**](https://huggingface.co/transformers/). This model is fine-tuned *specifically* for mental wellness, classifying text into five key categories: `anxiety`, `depression`, `stress`, `suicidal`, or `neutral`.
+- **Generative AI Companion:** The main Node.js backend takes this sentiment analysis (e.g., "depression") and injects it into a detailed prompt for the [**Google Gemini API**](https://deepmind.google/technologies/gemini/) (`@google/generative-ai`), instructing it to respond with the appropriate empathy, techniques, and conversational tone.
 - **Multi-Language Translation:** The entire chat pipeline is wrapped in a translation utility, allowing users to converse in multiple Indian languages. The system auto-translates user input to English for the AI models, then translates the AI's English response back to the user's native language.
 - **Speech-to-Text & Text-to-Speech:** The client-side chat interface integrates the browser's Web Speech API, allowing users to dictate messages via a microphone and have the AI's responses read aloud.
 - **Conversational Memory:** The chat controller maintains context by fetching the recent conversation history and appending it to new prompts for the Gemini AI, enabling multi-turn conversational awareness.
 
-### 2. Privacy, Security & Authentication
+### 2️⃣ Privacy, Security & Authentication 🔐
 
 Security and privacy are foundational to the platform, with protections at the database, server, and client levels.
 
@@ -26,7 +26,7 @@ Security and privacy are foundational to the platform, with protections at the d
 - **Role-Based Access Control (RBAC):** Admin routes are protected by a dedicated `isAdmin` middleware that performs a fresh database check on *every request* to verify admin status, rather than trusting the (potentially outdated) claims within the JWT.
 - **Secure API & Server:** The Express server implements `helmet` for secure HTTP headers (including a Content Security Policy), `express-rate-limit` to prevent API abuse, and a strict CORS policy controlled via environment variables.
 
-### 3. User Wellness Toolkit
+### 3️⃣ User Wellness Toolkit 🧘
 
 These are the core interactive features available to registered users through the main application.
 
@@ -38,7 +38,7 @@ These are the core interactive features available to registered users through th
 - **Offline PWA Functionality:** As a full Progressive Web App, the platform caches its core "app shell" (HTML/CSS/JS) and dynamic content (like wellness resources), allowing users to access the app and cached information even without an internet connection.
 - **Wellness Resource Hub:** A curated library of articles, videos, and audio content, filterable by language and tags.
 
-### 4. Human Connection: Counselors & Community
+### 4️⃣ Human Connection: Counselors & Community 👥
 
 The platform connects users with professionals and peers through a complete scheduling and communication suite.
 
@@ -50,7 +50,7 @@ The platform connects users with professionals and peers through a complete sche
 - **Anonymous Community Forum:** A peer-support forum where users can create posts and comments with an "Post Anonymously" toggle. When checked, the backend controller intercepts the request and masks the user's identity, displaying "Anonymous" to all other users.
 - **Spam-Proof Reporting:** Users can report any post or comment for moderation. The backend uses MongoDB's **`$addToSet`** operator to add the user's ID to a `reports` array, which atomically prevents the same user from spam-reporting the same content multiple times.
 
-### 5. Platform Management (Admin & Counselor Portals)
+### 5️⃣ Platform Management (Admin & Counselor Portals) 🛠
 
 The project includes two additional, separate applications for platform operation, served from the same backend.
 
@@ -62,18 +62,19 @@ The project includes two additional, separate applications for platform operatio
 
 ## 🛠 Tech Stack
 
-- **Backend:** Node.js, Express.js, Socket.io (for real-time chat)
+- **Backend:** [Node.js](https://nodejs.org/en/), [Express.js](https://expressjs.com/), [Socket.io](https://socket.io/) (for real-time chat)
 - **Frontend:** HTML5, CSS3, Vanilla JavaScript (SPA architecture)
 - **AI/ML:**
-  - **Sentiment Analysis:** Python, Flask, PyTorch, HuggingFace Transformers (BERT)
-  - **Generative AI:** Google Gemini (via `@google/generative-ai`)
-- **Database:** MongoDB (with Mongoose ODM)
-- **Authentication:** JSON Web Tokens (JWT)
+  - **Sentiment Analysis:** [Python](http://python.org/), [Flask](https://flask.palletsprojects.com/en/stable/), [PyTorch](https://pytorch.org/), [HuggingFace Transformers](https://huggingface.co/) ([BERT](https://huggingface.co/docs/transformers/en/model_doc/bert))
+  - **Generative AI:** [Google Gemini](http://deepmind.google/models/gemini/) (via `@google/generative-ai`)
+- **Database:** [MongoDB](https://www.mongodb.com/) (with Mongoose ODM)
+- **Authentication:** JSON Web Tokens ([JWT](https://www.jwt.io/))
 
 ## 📁 Project Structure
 
 ```
 sahara/
+├── config/                 # Configuration files
 ├── app.js                  # Main Express server with Socket.io integration
 ├── controllers/            # Business logic for all features (chat, booking, journal, etc.)
 ├── middleware/             # Authentication and Admin authorization
@@ -83,11 +84,10 @@ sahara/
 ├── sentiment_service/      # Self-contained Python/Flask sentiment microservice
 ├── socket/                 # Socket.io connection and event handling logic [Note: This is socketHandler.js]
 ├── utils/                  # Helper utilities (encryption, translation, etc.)
-├── .env                    # Environment variables (NOT committed)
+├── .env.example            # Environment variables (Example)
 └── package.json            # Node.js dependencies and scripts
 ```
 
-*(Directory structure self-corrected based on provided files.)*
 
 ## ⚡️ Quick Start
 
@@ -135,11 +135,11 @@ npm run sentiment-service
 npm run dev
 ```
 
-### 5. Access the App
+### 🌐 5. Access the App  
 
-- **Main App:** `http://localhost:5000`
-- **Admin Panel:** `http://localhost:5000/admin.html`
-- **Counselor Dashboard:** `http://localhost:5000/counselor.html`
+- **Main App:** [http://localhost:5000](http://localhost:5000)  
+- **Admin Panel:** [http://localhost:5000/admin.html](http://localhost:5000/admin.html)  
+- **Counselor Dashboard:** [http://localhost:5000/counselor.html](http://localhost:5000/counselor.html)  
 
 ## 📌 API Endpoints (Summary)
 
@@ -153,7 +153,7 @@ npm run dev
 - **Counselor:** `GET /api/counselors/my-appointments`
 - **Admin:** Full CRUD and management routes under `/api/admin/...`
 
-## 🆘 Crisis Response
+## 🆘 Crisis Response 🚨
 
 The chatbot includes an automated crisis detection system that:
 
@@ -161,7 +161,14 @@ The chatbot includes an automated crisis detection system that:
 - Immediately provides localized helpline information within the chat response.
 - Flags the conversation in the database for potential review by administrators.
 
-🙏 **Acknowledgments**  
-Google Gemini for generative AI  
-HuggingFace Transformers for the BERT model and tokenizer  
-MongoDB for the database solution  
+## 🙏 Acknowledgments  
+
+This platform stands on the shoulders of giants. Acknowledgments to:  
+
+- [Google Gemini](https://deepmind.google/technologies/gemini/) for generative AI capabilities.  
+- [Hugging Face Transformers](https://huggingface.co/transformers/) for the underlying BERT model and tokenizer.  
+- [MongoDB](https://www.mongodb.com/) for the flexible database solution.  
+
+## ⚖️ License
+
+This project is licensed under the **MIT License**. See the full license text in the [LICENSE.txt](LICENSE.txt) file for details.
