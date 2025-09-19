@@ -70,6 +70,45 @@ const appointmentsTableBody = document.getElementById('appointmentsTableBody');
 // Forum Moderation Elements
 const forumPostsTableBody = document.getElementById('forumPostsTableBody');
 
+/**
+ * Securely creates an HTML element and sets its properties.
+ * This is the safe alternative to using innerHTML with template literals.
+ * Any text passed to 'textContent' is rendered as plain text, not HTML.
+ * @param {string} tag - The HTML tag to create (e.g., 'div', 'h4', 'p').
+ * @param {object} options - An object containing properties to set.
+ * @param {string} [options.className] - The CSS class(es) to add.
+ * @param {string} [options.textContent] - The text content to safely add.
+ * @param {Array<HTMLElement>} [options.children] - An array of child elements to append.
+ * @param {Object<string, string>} [options.dataset] - An object of data attributes to set.
+ * @param {Function} [options.onclick] - An event handler to attach.
+ * @param {object} [options.style] - An object of CSS styles to apply.
+ * @returns {HTMLElement} The newly created and secured element.
+ */
+function createElement(tag, { className, textContent, children, dataset, onclick, style }) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (textContent) el.textContent = textContent;
+    if (onclick) el.onclick = onclick;
+    
+    if (dataset) {
+        for (const key in dataset) {
+            el.dataset[key] = dataset[key];
+        }
+    }
+    
+    if (style) {
+        for (const key in style) {
+            el.style[key] = style[key];
+        }
+    }
+
+    if (children && Array.isArray(children)) {
+        children.forEach(child => child && el.appendChild(child));
+    }
+    
+    return el;
+}
+
 // --- 2. Global & State Management ---
 let currentSection = 'dashboard'; // Tracks the currently visible section
 let currentChatId = null; // Stores the ID of the chat being viewed/edited in the modal
@@ -1038,21 +1077,21 @@ window.openCounselorModal = async function(counselorId = null) {
     
     try {
         const token = localStorage.getItem('token');
+        const authHeader = { 'Authorization': `Bearer ${token}` };
+
         if (counselorId) {
             // --- EDIT MODE ---
-            // Fetch the single counselor we want to edit.
             counselorModalTitle.textContent = 'Edit Counselor';
             showLoading('Loading counselor data...');
+            
             const response = await fetch(`/api/admin/counselors/${counselorId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: authHeader
             });
             const result = await response.json();
             if (!result.success) throw new Error(result.error);
             const counselor = result.data;
             
-            // Populate the form with this counselor's data
             document.getElementById('editCounselorId').value = counselor._id;
-            // Create the single option for the user and disable the dropdown (can't change a counselor's user)
             userSelect.innerHTML = `<option value="${counselor.user._id}">${counselor.user.username} (${counselor.user.email})</option>`;
             userSelect.disabled = true;
             document.getElementById('editCounselorSpecialty').value = counselor.specialty;
@@ -1062,7 +1101,6 @@ window.openCounselorModal = async function(counselorId = null) {
 
         } else {
             // --- CREATE MODE ---
-            // We must find which users are NOT already counselors.
             counselorModalTitle.textContent = 'Create New Counselor';
             showLoading('Loading available users...');
             
@@ -1070,12 +1108,11 @@ window.openCounselorModal = async function(counselorId = null) {
             const result = await response.json();
             if (!result.success) throw new Error(result.error);
 
-            const availableUsers = result.data; // This data is already pre-filtered by the server.
+            const availableUsers = result.data;
             
             if (availableUsers.length === 0) {
                 userSelect.innerHTML = '<option value="">No available users to assign</option>';
             } else {
-                // Populate the dropdown with only the available users
                 availableUsers.forEach(u => {
                     const option = document.createElement('option');
                     option.value = u._id;
