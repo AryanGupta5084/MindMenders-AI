@@ -33,14 +33,30 @@ import nltk
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 
-# Let's make sure the necessary NLTK data is present before we start.
-# This script assumes you've already run nltk_downloader.py.
-try:
-    nltk.data.find('tokenizers/punkt')
-    nltk.data.find('corpora/wordnet')
-except nltk.downloader.DownloadError:
-    print("❌ NLTK data not found. Please run the 'nltk_downloader.py' script first.")
-    exit()
+# --- THIS BLOCK HAS BEEN REPLACED FOR A MORE ROBUST SOLUTION ---
+# This new block automatically downloads required NLTK data if it's missing.
+def download_nltk_data():
+    """Checks for and downloads required NLTK data packages."""
+    required_packages = {
+        'punkt': 'tokenizers/punkt',
+        'wordnet': 'corpora/wordnet',
+        'omw-1.4': 'corpora/omw-1.4',
+        'punkt_tab': 'tokenizers/punkt_tab'
+    }
+    for pkg_id, path in required_packages.items():
+        try:
+            nltk.data.find(path)
+            print(f"✅ NLTK package '{pkg_id}' already downloaded.")
+        except LookupError:
+            print(f"⬇️ Downloading NLTK package '{pkg_id}'...")
+            nltk.download(pkg_id, quiet=True)
+            print(f"✅ NLTK package '{pkg_id}' downloaded successfully.")
+
+print("--- Checking NLTK data... ---")
+download_nltk_data()
+print("--- NLTK check complete. ---")
+# -------------------------------------------------------------------
+
 
 # Initialize the lemmatizer once, so we don't have to do it repeatedly.
 lemmatizer = WordNetLemmatizer()
@@ -52,7 +68,7 @@ MODEL_NAME = 'bert-base-uncased'
 MAX_LENGTH = 128
 BATCH_SIZE = 16
 NUM_EPOCHS = 10
-OUTPUT_DIR = 'model'
+OUTPUT_DIR = '/opt/render/model'
 
 
 # --- PyTorch Dataset Class ---

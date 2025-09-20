@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: sentiment-service
+    env: python
+    buildCommand: |
+      if [ ! -d "/opt/render/model" ]; then
+        pip install -r requirements.txt &&
+        python download_nltk_data.py &&
+        python train_model.py sentiment_dataset.csv
+      else
+        pip install -r requirements.txt &&
+        python download_nltk_data.py
+      fi
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: PORT
+        value: 10000
+    disk:
+      name: model-storage
+      mountPath: /opt/render/model
+      sizeGB: 1
