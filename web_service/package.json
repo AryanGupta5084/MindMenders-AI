@@ -5,8 +5,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "test": "jest",
-    "sentiment-service": "cd sentiment_service && python app.py",
+    "test": "test",
     "start-all": "npm-run-all --parallel start sentiment-service"
   },
   "keywords": ["mental health", "chatbot", "express", "socket.io"],
