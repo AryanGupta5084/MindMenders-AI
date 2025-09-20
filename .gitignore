@@ -37,9 +37,9 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-sentiment_service/model/best_model/
-sentiment_service/model/tokenizer.json
-sentiment_service/model/model_config.json
+#sentiment_service/model/best_model/
+#sentiment_service/model/tokenizer.json
+#sentiment_service/model/model_config.json
 
 # --- Logs ---
 # Log files are generated during runtime and can become very large.
